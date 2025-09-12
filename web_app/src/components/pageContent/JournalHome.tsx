@@ -12,34 +12,35 @@ const JournalHome: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('camera');
   const [entries, setEntries] = useState<JournalEntryData[]>([]);
 
+  const fetchEntries = async () => {
+    const res = await fetch('/api/journal', { method: 'GET' });
+    if (!res.ok) return;
+    const json = await res.json();
+    const mapped: JournalEntryData[] = (json.items || []).map((it: any) => ({
+      id: it.id,
+      text: it.content,
+      timestamp: new Date(it.createdAt).getTime(),
+      wordCount: (it.content as string).split(/\s+/).filter((w) => w.length > 0).length,
+    }));
+    setEntries(mapped);
+  };
 
-  // Load entries from localStorage on component mount
   useEffect(() => {
-    const savedEntries = localStorage.getItem('journalEntries');
-    if (savedEntries) {
-      setEntries(JSON.parse(savedEntries));
-    }
+    fetchEntries();
   }, []);
 
-  // Save entries to localStorage whenever entries change
-  useEffect(() => {
-    localStorage.setItem('journalEntries', JSON.stringify(entries));
-  }, [entries]);
-
-  const handleCapture = (imageData: string, extractedText: string) => {
-    const newEntry: JournalEntryData = {
-      id: Date.now().toString(),
-      text: extractedText,
-      timestamp: Date.now(),
-      wordCount: extractedText.split(/\s+/).filter(word => word.length > 0).length
-    };
-
-    setEntries(prev => [newEntry, ...prev]);
-    
-    // Automatically switch to journal view after capture
+  const handleCapture = async (_imageData: string, extractedText: string) => {
+    const res = await fetch('/api/journal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: extractedText }),
+    });
+    if (!res.ok) {
+      alert('Failed to save journal entry');
+      return;
+    }
+    await fetchEntries();
     setCurrentView('journal');
-    
-    // Show success message
     setTimeout(() => {
       alert('Journal entry captured and text extracted successfully!');
     }, 100);

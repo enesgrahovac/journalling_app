@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Journal App - Backend Wiring (Option A: Vercel-first)
 
-## Getting Started
+## Setup
 
-First, run the development server:
+1. Create `.env` from `.env.example` and fill values:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+DATABASE_URL=...
+OPENAI_API_KEY=...
+OCR_MODEL_ID=gpt-5-mini
+BLOB_READ_WRITE_TOKEN=...
+NEXT_PUBLIC_APP_ENV=development
+HARD_CODED_USER_ID=00000000-0000-0000-0000-000000000001
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install and generate Prisma client, run migrations:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+npm install
+npx prisma generate
+npx prisma migrate dev --name init
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Endpoints
 
-## Learn More
+- POST `/api/upload-url` (multipart form: file)
+  - Headers: `x-user-id` optional; defaults to `HARD_CODED_USER_ID`
+  - Returns: `{ url, mediaId }`
 
-To learn more about Next.js, take a look at the following resources:
+- POST `/api/ocr`
+  - Body: `{ urls?: string[], mediaIds?: string[] }`
+  - Extracts text with Vercel AI SDK using `OCR_MODEL_ID` and stores `OcrResult`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- GET `/api/journal` → list entries (supports `take`, `skip`)
+- POST `/api/journal` → `{ title?, content, mediaIds? }`
+- GET `/api/journal/[id]`
+- PATCH `/api/journal/[id]` → `{ title?, content?, mediaIds? }`
+- DELETE `/api/journal/[id]`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- POST `/api/chat`
+  - Body: `{ conversationId?, messages: [{ role, content }] }`
+  - Streams assistant response and records messages
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notes
+- Storage: Vercel Blob. Ensure `BLOB_READ_WRITE_TOKEN` is configured.
+- DB: Neon Postgres. `DATABASE_URL` must have `sslmode=require`.
+- AI: Vercel AI SDK with `@ai-sdk/openai` provider.
+- Multi-user ready via `x-user-id` or `HARD_CODED_USER_ID`.

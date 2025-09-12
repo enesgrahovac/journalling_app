@@ -47,36 +47,50 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture }) => {
     const video = videoRef.current;
     const ctx = canvas.getContext('2d');
 
-    if (ctx) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
+    if (!ctx) return;
 
-      const imageData = canvas.toDataURL('image/jpeg', 0.9);
-      
-      // Mock OCR text extraction - in real app this would call an OCR API
-      const mockExtractedText = await simulateOCR();
-      
-      onCapture(imageData, mockExtractedText);
-      stopCamera();
-      setIsProcessing(false);
-    }
-  };
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
 
-  const simulateOCR = (): Promise<string> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const sampleTexts = [
-          "Today was a productive day. I managed to complete most of my tasks and felt energized throughout. The morning walk really helped clear my mind.",
-          "Feeling grateful for the small moments today. Had coffee with a friend and we talked about our dreams for the future. Sometimes the best conversations happen unexpectedly.",
-          "Struggling with some decisions lately. Need to trust my instincts more and stop overthinking everything. Progress over perfection.",
-          "Beautiful sunset tonight. Reminded me to pause and appreciate the simple things in life. Nature has a way of putting things in perspective.",
-          "Learning something new every day. Today I realized that being vulnerable with others actually creates deeper connections. Growth is uncomfortable but necessary."
-        ];
-        const randomText = sampleTexts[Math.floor(Math.random() * sampleTexts.length)];
-        resolve(randomText);
-      }, 2000); // Simulate processing time
-    });
+    // Convert canvas to Blob for upload
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        setIsProcessing(false);
+        return;
+      }
+
+      try {
+        // Upload to backend -> Blob storage
+        const form = new FormData();
+        form.append('file', new File([blob], 'capture.jpg', { type: 'image/jpeg' }));
+        const uploadRes = await fetch('/api/upload-url', {
+          method: 'POST',
+          body: form,
+        });
+        if (!uploadRes.ok) throw new Error('Upload failed');
+        const { url, mediaId } = await uploadRes.json();
+
+        // Call OCR on uploaded media
+        const ocrRes = await fetch('/api/ocr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mediaIds: [mediaId] }),
+        });
+        if (!ocrRes.ok) throw new Error('OCR failed');
+        const ocrJson = await ocrRes.json();
+        const text: string = ocrJson.results?.[0]?.text || '';
+
+        const imageData = canvas.toDataURL('image/jpeg', 0.9);
+        onCapture(imageData, text);
+        stopCamera();
+      } catch (e) {
+        console.error(e);
+        alert('Failed to process image.');
+      } finally {
+        setIsProcessing(false);
+      }
+    }, 'image/jpeg', 0.9);
   };
 
   return (
@@ -98,13 +112,11 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture }) => {
           className={`w-full border-2 border-black ${!isStreaming ? 'hidden' : ''}`}
           style={{ aspectRatio: '4/3' }}
         />
-        
         {!isStreaming && (
           <div className="w-full aspect-[4/3] border-2 border-black bg-muted flex items-center justify-center">
             <Camera className="w-16 h-16" />
           </div>
         )}
-
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
@@ -133,7 +145,6 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture }) => {
                 <span>{isProcessing ? 'Processing...' : 'Capture'}</span>
               </div>
             </button>
-            
             <button
               onClick={stopCamera}
               disabled={isProcessing}

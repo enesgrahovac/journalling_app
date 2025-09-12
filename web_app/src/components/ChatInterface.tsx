@@ -34,28 +34,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ entries }) => {
     scrollToBottom();
   }, [messages]);
 
-  const generateResponse = (userMessage: string): Promise<string> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const lowerMessage = userMessage.toLowerCase();
-        
-        if (lowerMessage.includes('mood') || lowerMessage.includes('feeling')) {
-          resolve("Based on your recent entries, I notice you've been experiencing a mix of gratitude and introspection. You seem to value small moments and meaningful connections. Your writing shows emotional awareness and growth mindset.");
-        } else if (lowerMessage.includes('pattern') || lowerMessage.includes('trend')) {
-          resolve("I've identified some patterns in your journaling: You often write about nature and its calming effects, you value personal growth and learning, and you frequently mention the importance of relationships and human connection.");
-        } else if (lowerMessage.includes('insight') || lowerMessage.includes('learn')) {
-          resolve("One key insight from your entries is your journey toward self-acceptance and trusting your instincts. You're developing a stronger sense of what matters to you - authentic connections, personal growth, and finding meaning in everyday moments.");
-        } else if (lowerMessage.includes('recent') || lowerMessage.includes('today') || lowerMessage.includes('latest')) {
-          resolve("Your most recent entries show a thoughtful, reflective tone. You're processing life experiences thoughtfully and seem to be in a phase of personal growth and self-discovery.");
-        } else if (lowerMessage.includes('count') || lowerMessage.includes('how many')) {
-          resolve(`You currently have ${entries.length} journal entries in your collection. ${entries.length > 0 ? `Your total word count is ${entries.reduce((sum, entry) => sum + entry.wordCount, 0)} words.` : 'Start capturing your thoughts to build your journal!'}`);
-        } else {
-          resolve("That's an interesting question! While I can see themes of personal growth, gratitude, and mindfulness in your writing, I'd love to help you explore specific aspects. Try asking about your moods, patterns, or recent thoughts.");
-        }
-      }, 1500 + Math.random() * 1000);
-    });
-  };
-
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
@@ -71,10 +49,36 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ entries }) => {
     setIsTyping(true);
 
     try {
-      const response = await generateResponse(inputValue);
+      const payloadMessages = [
+        { role: 'system', content: 'You are Journal Assistant.' },
+        ...messages.map(m => ({ role: m.sender === 'user' ? 'user' as const : 'assistant' as const, content: m.content })),
+        { role: 'user', content: newUserMessage.content },
+      ];
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: payloadMessages }),
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error('Chat failed');
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantText = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        assistantText += chunk;
+      }
+
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: response,
+        content: assistantText || '...',
         sender: 'bot',
         timestamp: Date.now()
       };
