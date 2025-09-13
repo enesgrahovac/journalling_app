@@ -6,11 +6,12 @@ export const runtime = 'nodejs'
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params
     const item = await prisma.journalEntry.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { media: true },
     })
     if (!item) return NextResponse.json({ error: 'not found' }, { status: 404 })
@@ -23,9 +24,10 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params
     const body = await req.json()
     const parsed = journalUpdateSchema.safeParse(body)
     if (!parsed.success) {
@@ -33,7 +35,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.journalEntry.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         title: parsed.data.title ?? undefined,
         content: parsed.data.content ?? undefined,
@@ -42,12 +44,12 @@ export async function PATCH(
 
     if (parsed.data.mediaIds && parsed.data.mediaIds.length > 0) {
       await prisma.media.updateMany({
-        where: { journalEntryId: params.id },
+        where: { journalEntryId: id },
         data: { journalEntryId: null },
       })
       await prisma.media.updateMany({
         where: { id: { in: parsed.data.mediaIds } },
-        data: { journalEntryId: params.id },
+        data: { journalEntryId: id },
       })
     }
 
@@ -65,11 +67,12 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    await prisma.media.updateMany({ where: { journalEntryId: params.id }, data: { journalEntryId: null } })
-    await prisma.journalEntry.delete({ where: { id: params.id } })
+    const { id } = await context.params
+    await prisma.media.updateMany({ where: { journalEntryId: id }, data: { journalEntryId: null } })
+    await prisma.journalEntry.delete({ where: { id } })
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error(err)
