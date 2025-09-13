@@ -61,6 +61,19 @@ const JournalList: React.FC<JournalListProps> = ({ entries }) => {
             </p>
           </div>
 
+          {selectedEntry.mediaUrls && selectedEntry.mediaUrls.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {selectedEntry.mediaUrls.map((url, idx) => (
+                <img
+                  key={url + idx}
+                  src={url}
+                  alt=""
+                  className="w-full h-32 object-cover border-2 border-black"
+                />
+              ))}
+            </div>
+          )}
+
           <div className="bg-muted border-2 border-black p-4">
             <p className="font-mono text-sm leading-relaxed whitespace-pre-wrap">
               {selectedEntry.text}

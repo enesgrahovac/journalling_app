@@ -1,11 +1,12 @@
 import React from 'react';
-import { FileText, Calendar } from 'lucide-react';
+import { FileText, Calendar, Images } from 'lucide-react';
 
 export interface JournalEntryData {
   id: string;
   text: string;
   timestamp: number;
   wordCount: number;
+  mediaUrls?: string[];
 }
 
 interface JournalEntryProps {
@@ -41,9 +42,17 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ entry, onSelect }) => {
           <FileText className="w-4 h-4" />
           <span className="font-mono text-sm">Entry #{entry.id.slice(0, 8)}</span>
         </div>
-        <div className="flex items-center space-x-2 text-muted-foreground">
-          <Calendar className="w-4 h-4" />
-          <span className="font-mono text-xs">{formatDate(entry.timestamp)}</span>
+        <div className="flex items-center space-x-3 text-muted-foreground">
+          {entry.mediaUrls && entry.mediaUrls.length > 0 && (
+            <div className="flex items-center space-x-1">
+              <Images className="w-4 h-4" />
+              <span className="font-mono text-xs">{entry.mediaUrls.length}</span>
+            </div>
+          )}
+          <div className="flex items-center space-x-2">
+            <Calendar className="w-4 h-4" />
+            <span className="font-mono text-xs">{formatDate(entry.timestamp)}</span>
+          </div>
         </div>
       </div>
 
@@ -52,7 +61,22 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ entry, onSelect }) => {
         <p className="font-mono text-sm leading-relaxed">
           {truncateText(entry.text)}
         </p>
-        
+        {/* Optional tiny preview row */}
+        {entry.mediaUrls && entry.mediaUrls.length > 0 && (
+          <div className="flex space-x-1 pt-1">
+            {entry.mediaUrls.slice(0, 3).map((url, idx) => (
+              <img
+                key={url + idx}
+                src={url}
+                alt=""
+                className="w-8 h-8 object-cover border border-black"
+              />
+            ))}
+            {entry.mediaUrls.length > 3 && (
+              <div className="w-8 h-8 border border-black bg-muted flex items-center justify-center font-mono text-[10px]">+{entry.mediaUrls.length - 3}</div>
+            )}
+          </div>
+        )}
         {/* Entry stats */}
         <div className="flex justify-between items-center pt-2 border-t border-muted text-xs text-muted-foreground font-mono">
           <span>{entry.wordCount} words</span>

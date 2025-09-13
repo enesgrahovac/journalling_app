@@ -21,6 +21,7 @@ const JournalHome: React.FC = () => {
       text: it.content,
       timestamp: new Date(it.createdAt).getTime(),
       wordCount: (it.content as string).split(/\s+/).filter((w) => w.length > 0).length,
+      mediaUrls: (it.media || []).map((m: any) => m.url),
     }));
     setEntries(mapped);
   };
@@ -29,11 +30,11 @@ const JournalHome: React.FC = () => {
     fetchEntries();
   }, []);
 
-  const handleCapture = async (_imageData: string, extractedText: string) => {
+  const handleCapture = async (mediaIds: string[], extractedText: string) => {
     const res = await fetch('/api/journal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: extractedText }),
+      body: JSON.stringify({ content: extractedText, mediaIds }),
     });
     if (!res.ok) {
       alert('Failed to save journal entry');
@@ -42,7 +43,7 @@ const JournalHome: React.FC = () => {
     await fetchEntries();
     setCurrentView('journal');
     setTimeout(() => {
-      alert('Journal entry captured and text extracted successfully!');
+      alert('Journal entry created successfully!');
     }, 100);
   };
 
