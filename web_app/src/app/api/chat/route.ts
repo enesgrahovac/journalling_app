@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
     conversationId?: string
   }
 
-  const model = openai(process.env.OCR_MODEL_ID || 'gpt-5-mini')
+  const modelId = process.env.CHAT_MODEL_ID || process.env.OCR_MODEL_ID || 'gpt-5'
+  const model = openai(modelId)
 
   const convo = conversationId
     ? await prisma.conversation.findUnique({ where: { id: conversationId } })
@@ -41,6 +42,13 @@ export async function POST(req: NextRequest) {
       { role: 'system', content: systemPrompt },
       ...messages,
     ],
+    providerOptions: {
+      openai: {
+        reasoning: { effort: 'medium' },
+        verbosity: 'medium',
+        reasoningSummary: 'auto',
+      },
+    },
     onFinish: async ({ text }) => {
       await prisma.message.create({
         data: { conversationId: convo.id, role: 'assistant', content: text },
@@ -48,5 +56,5 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  return response.toTextStreamResponse()
+  return response.toUIMessageStreamResponse({ sendReasoning: true })
 }
